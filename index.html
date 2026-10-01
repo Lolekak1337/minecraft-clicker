@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#1685e5">
+<title>Block Miner — Pixel Clicker</title>
+<script src="/sdk.js"></script>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#1685e5;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+body{font-family:monospace,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-weight:900}
+canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges}
+</style>
+
+<style id="mobile-safari-fix">
+html,body{
+  width:100%;height:100%;margin:0;padding:0;
+  overflow:hidden!important;
+  overscroll-behavior:none;
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:none;
+}
+canvas{
+  display:block;
+  width:100vw;
+  height:100dvh;
+  max-width:100vw;
+  max-height:100dvh;
+  image-rendering:pixelated;
+}
+</style>
+
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+'use strict';
+
+/* ============================================================
+   BLOCK MINER — один HTML-файл, Canvas + Yandex Games SDK
+   Ключевые системы: SDK, реклама, сохранения, кликер, магазин,
+   автомайнеры, офлайн-доход, престиж, достижения и локализация.
+   ============================================================ */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d', {alpha:false});
+ctx.imageSmoothingEnabled = false;
+
+const TAU = Math.PI*2;
+const SAVE_KEY = 'block_miner_save_v3';
+const MAX_OFFLINE = 8*60*60;
+let W=0,H=0,DPR=1, UI_SCALE=1;
+
+const LOCALES = {
+  ru:{
+    title:'BLOCK MINER', coins:'Монеты', emeralds:'Изумруды', bonus:'Бонус',
+    achievements:'Достижения', prestige:'Престиж', sound:'Звук',
+    streak:'Серия', income:'к доходу', active:'Активные бусты',
+    offline:'Офлайн-доход', doubleOffline:'Удвоить за рекламу',
+    emeraldChance:'Шанс: 5%', destroy:'при разрушении',
+    shop:'Магазин', pickaxes:'Кирки', miners:'Автомайнеры', buy:'Купить',
+    owned:'Куплено', damage:'урон', next:'Следующий блок', hp:'HP',
+    skins:'Скины', upgrades:'Прокачка', chest:'Сундук',
+    autoIncome:'Авто-доход', mining:'добыча', second:'/сек',
+    rewardTitle:'Бонусы за рекламу', adLabel:'Смотреть рекламу',
+    rewardA:'×2 монеты на 60 сек',
+    rewardB:'+10 минут авто-дохода',
+    rewardC:'Бесплатный сундук',
+    rewardD:'×5 добыча на 30 сек',
+    rewardE:'Восстановить серию',
+    adHint:'Награда после просмотра рекламы',
+    unavailable:'Реклама недоступна, попробуйте позже',
+    tooSoon:'Подождите несколько секунд',
+    first:'Первая добыча', miner:'Шахтёр', rich:'Богач',
+    automation:'Автоматизация', diamondAge:'Алмазный век', adMagnate:'Рекламный магнат',
+    prestigeTitle:'Престиж', prestigeText:'Сбросьте монеты и апгрейды, чтобы получить Кристаллы Края.',
+    crystals:'Кристаллы Края', prestigeBtn:'Престиж',
+    triple:'Утроить кристаллы за рекламу', later:'Позже',
+    offlineTitle:'Пока вас не было', minutes:'мин', hours:'ч',
+    chestTitle:'Сундук открыт!', continue:'Продолжить',
+    reviveTitle:'Серия потеряна', reviveText:'Восстановить серию с помощью рекламы?',
+    restore:'Восстановить', skip:'Продолжить без серии',
+    soundOn:'Звук: ВКЛ', soundOff:'Звук: ВЫКЛ',
+    pause:'ПАУЗА', close:'Закрыть', language:'Язык',
+    buyPick:'Купить кирку', buyMiner:'Купить автомайнера',
+    noMoney:'Недостаточно монет', unlocked:'Открыт новый блок!',
+    reward:'Награда', total:'Всего', click:'клик',
+    blockEarth:'Земля', blockStone:'Камень', blockIron:'Железо',
+    blockGold:'Золото', blockDiamond:'Алмаз', blockNetherite:'Незерит',
+    zombie:'Зомби-шахтёр', skeleton:'Скелет-шахтёр', creeper:'Крипер-бурильщик',
+    golem:'Железный голем', dragon:'Дракон Края',
+    wooden:'Деревянная кирка', stone:'Каменная кирка', iron:'Железная кирка',
+    golden:'Золотая кирка', diamond:'Алмазная кирка', netherite:'Незеритовая кирка',
+    tap:'ЖМИТЕ ПО БЛОКУ', auto:'авто',
+    x2:'×2 монеты', x5:'×5 добыча', saved:'Сохранено'
+  },
+  en:{
+    title:'BLOCK MINER', coins:'Coins', emeralds:'Emeralds', bonus:'Bonus',
+    achievements:'Achievements', prestige:'Prestige', sound:'Sound',
+    streak:'Streak', income:'income', active:'Active boosts',
+    offline:'Offline income', doubleOffline:'Double for ad',
+    emeraldChance:'Chance: 5%', destroy:'on break',
+    shop:'Shop', pickaxes:'Pickaxes', miners:'Auto-miners', buy:'Buy',
+    owned:'Owned', damage:'damage', next:'Next block', hp:'HP',
+    skins:'Skins', upgrades:'Upgrade', chest:'Chest',
+    autoIncome:'Auto income', mining:'mining', second:'/sec',
+    rewardTitle:'Ad Rewards', adLabel:'Watch ad',
+    rewardA:'×2 coins for 60 sec', rewardB:'+10 min auto income',
+    rewardC:'Free chest', rewardD:'×5 mining for 30 sec', rewardE:'Restore streak',
+    adHint:'Reward after watching the ad', unavailable:'Ad unavailable, try later',
+    tooSoon:'Please wait a few seconds', first:'First Mine', miner:'Miner',
+    rich:'Rich', automation:'Automation', diamondAge:'Diamond Age', adMagnate:'Ad Tycoon',
+    prestigeTitle:'Prestige', prestigeText:'Reset coins and upgrades to gain End Crystals.',
+    crystals:'End Crystals', prestigeBtn:'Prestige', triple:'Triple crystals for ad',
+    later:'Later', offlineTitle:'While you were away', minutes:'min', hours:'h',
+    chestTitle:'Chest opened!', continue:'Continue', reviveTitle:'Streak lost',
+    reviveText:'Restore the streak by watching an ad?', restore:'Restore',
+    skip:'Continue without streak', soundOn:'Sound: ON', soundOff:'Sound: OFF',
+    pause:'PAUSED', close:'Close', language:'Language', buyPick:'Buy pickaxe',
+    buyMiner:'Buy auto-miner', noMoney:'Not enough coins', unlocked:'New block unlocked!',
+    reward:'Reward', total:'Total', click:'click', blockEarth:'Dirt', blockStone:'Stone',
+    blockIron:'Iron', blockGold:'Gold', blockDiamond:'Diamond', blockNetherite:'Netherite',
+    zombie:'Zombie Miner', skeleton:'Skeleton Miner', creeper:'Creeper Driller',
+    golem:'Iron Golem', dragon:'Ender Dragon', wooden:'Wooden Pickaxe',
+    stone:'Stone Pickaxe', iron:'Iron Pickaxe', golden:'Golden Pickaxe',
+    diamond:'Diamond Pickaxe', netherite:'Netherite Pickaxe',
+    tap:'TAP THE BLOCK', auto:'auto', x2:'×2 coins', x5:'×5 mining', saved:'Saved'
+  }
+};
+let lang='ru';
+const T = k => (LOCALES[lang] && LOCALES[lang][k]) || LOCALES.ru[k] || k;
+
+/* ---------- утилиты ---------- */
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const fmt=n=>Math.floor(n).toLocaleString(lang==='ru'?'ru-RU':'en-US');
+const now=()=>Date.now();
+function rand(a,b){return a+Math.random()*(b-a)}
+function rr(a,b){return Math.floor(rand(a,b+1))}
+function rectHit(x,y,r){return x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h}
+function roundedRect(c,x,y,w,h,r,fill,stroke='#111',sw=3){
+  c.beginPath(); c.roundRect(x,y,w,h,r); c.fillStyle=fill;c.fill();
+  if(stroke){c.lineWidth=sw;c.strokeStyle=stroke;c.stroke()}
+}
+function text(str,x,y,size=20,fill='#fff',align='left'){
+  ctx.font=`900 ${Math.max(8,size)}px monospace`;ctx.textAlign=align;ctx.textBaseline='middle';
+  ctx.fillStyle='#2b2b2b';ctx.fillText(str,x+2,y+2);
+  ctx.fillStyle=fill;ctx.fillText(str,x,y);
+}
+function fitText(str,max,size){
+  ctx.font=`900 ${size}px monospace`;
+  if(ctx.measureText(str).width<=max)return size;
+  return Math.max(9,Math.floor(size*max/ctx.measureText(str).width));
+}
+
+/* ---------- состояние ---------- */
+const BLOCKS=[
+ {id:'dirt',name:'blockEarth',hp:1,reward:1,unlock:0,top:'#69d32f',side:'#8B5A2B',dark:'#6B4423'},
+ {id:'stone',name:'blockStone',hp:3,reward:3,unlock:50,top:'#9b9b9b',side:'#7F7F7F',dark:'#5A5A5A'},
+ {id:'iron',name:'blockIron',hp:10,reward:12,unlock:500,top:'#e8e8e8',side:'#D8D8D8',dark:'#A0A0A0'},
+ {id:'gold',name:'blockGold',hp:25,reward:40,unlock:5000,top:'#FFE34C',side:'#FFD700',dark:'#C9A000'},
+ {id:'diamond',name:'blockDiamond',hp:60,reward:120,unlock:50000,top:'#75f6e7',side:'#4AEDD9',dark:'#2BB8A8'},
+ {id:'netherite',name:'blockNetherite',hp:150,reward:400,unlock:500000,top:'#5b485d',side:'#3B2E3A',dark:'#1F1720'}
+];
+const PICKS=[
+ {id:'wooden',name:'wooden',bonus:1,cost:25,mult:1.15,color:'#9b5c22'},
+ {id:'stone',name:'stone',bonus:3,cost:200,mult:1.18,color:'#9b9b9b'},
+ {id:'iron',name:'iron',bonus:8,cost:1500,mult:1.20,color:'#d8d8d8'},
+ {id:'golden',name:'golden',bonus:25,cost:12000,mult:1.22,color:'#ffd700'},
+ {id:'diamond',name:'diamond',bonus:80,cost:100000,mult:1.25,color:'#4aedd9'},
+ {id:'netherite',name:'netherite',bonus:250,cost:1000000,mult:1.30,color:'#3b2e3a'}
+];
+const MINERS=[
+ {id:'zombie',name:'zombie',income:1,cost:100,mult:1.20,color:'#61b34b'},
+ {id:'skeleton',name:'skeleton',income:5,cost:1000,mult:1.22,color:'#e0e0d0'},
+ {id:'creeper',name:'creeper',income:25,cost:10000,mult:1.25,color:'#49c94a'},
+ {id:'golem',name:'golem',income:150,cost:100000,mult:1.28,color:'#b8b8b8'},
+ {id:'dragon',name:'dragon',income:1000,cost:1000000,mult:1.30,color:'#5c365e'}
+];
+
+const DEFAULT={
+ coins:0, emeralds:0, totalCoins:0, totalClicks:0, broken:0,
+ pick:0, miners:[0,0,0,0,0], currentBlock:0,
+ streak:0, bestStreak:0, lastClick:0, lastSaveTime:now(),
+ crystals:0, totalCrystals:0, prestigeCount:0,
+ doubleUntil:0, x5Until:0, reviveAvailable:false, sound:true,
+ adViews:0, achievements:{}, skin:0, language:'ru',
+ firstRun:true
+};
+let S=structuredClone(DEFAULT);
+let sdk=null, player=null, sdkReady=false;
+let paused=false, hiddenPaused=false, modal=null, toastMsg='', toastUntil=0;
+let particles=[], floats=[], sparks=[], shake=0, blockScale=1, flash=0;
+let tab='pick', lastFrame=performance.now(), autosaveTimer=0;
+let lastInterstitial=0, sessionStart=now(), rewardLock=0;
+let pendingOffline=0, pendingOfflineBase=0;
+let buttonRects=[];
+let bannerShown=false;
+
+/* ---------- звук ---------- */
+const AudioSystem={
+  ctx:null, master:null,
+  init(){
+    try{
+      if(!this.ctx){
+        this.ctx=new (window.AudioContext||window.webkitAudioContext)();
+        this.master=this.ctx.createGain();this.master.gain.value=.14;this.master.connect(this.ctx.destination);
+      }
+      if(this.ctx.state==='suspended')this.ctx.resume();
+    }catch(e){}
+  },
+  mute(){try{if(this.master)this.master.gain.value=0}catch(e){}},
+  unmute(){try{if(this.master)this.master.gain.value=S.sound?.14:0}catch(e){}},
+  tone(freq,dur,type='square',vol=.18){
+    try{
+      if(!S.sound)return;this.init();if(!this.ctx)return;
+      const o=this.ctx.createOscillator(),g=this.ctx.createGain();
+      o.type=type;o.frequency.value=freq;g.gain.value=0;
+      o.connect(g);g.connect(this.master);
+      const t=this.ctx.currentTime;g.gain.setValueAtTime(vol,t);
+      g.gain.exponentialRampToValueAtTime(.001,t+dur);o.start(t);o.stop(t+dur+.02);
+    }catch(e){}
+  },
+  click(){this.tone(95,.07,'square',.22);this.tone(150,.045,'triangle',.07)},
+  break(){this.tone(120,.12,'square',.20);setTimeout(()=>this.tone(70,.16,'sawtooth',.10),20)},
+  buy(){this.tone(420,.08,'square',.13);setTimeout(()=>this.tone(650,.12,'square',.12),60)},
+  achievement(){this.tone(660,.08,'square',.15);setTimeout(()=>this.tone(990,.16,'square',.13),90)},
+  reward(){this.tone(500,.08,'square',.14);setTimeout(()=>this.tone(900,.18,'triangle',.15),80)},
+  chest(){[440,660,880,1100].forEach((f,i)=>setTimeout(()=>this.tone(f,.10,'square',.12),i*70))}
+};
+
+/* ---------- сохранение ---------- */
+const SaveSystem={
+  async load(){
+    let data=null;
+    try{
+      if(sdk && sdk.getPlayer){
+        player=await sdk.getPlayer({scopes:false});
+        data=await player.getData();
+      }
+    }catch(e){data=null}
+    if(!data){
+      try{data=JSON.parse(localStorage.getItem(SAVE_KEY)||'null')}catch(e){data=null}
+    }
+    if(data && typeof data==='object'){
+      S=Object.assign(structuredClone(DEFAULT),data);
+      S.miners=Array.isArray(data.miners)?data.miners.slice(0,5):[0,0,0,0,0];
+      while(S.miners.length<5)S.miners.push(0);
+      S.achievements=data.achievements||{};
+      S.lastSaveTime=Number(data.lastSaveTime)||now();
+      lang=(data.language==='en'?'en':'ru');
+      this.applyOffline();
+    }else{
+      S=structuredClone(DEFAULT);
+      S.lastSaveTime=now();
+      lang=(navigator.language||'ru').toLowerCase().startsWith('en')?'en':'ru';
+    }
+  },
+  pack(){
+    return {
+      ...S, language:lang, lastSaveTime:now(),
+      doubleUntil:S.doubleUntil, x5Until:S.x5Until
+    };
+  },
+  async save(){
+    const data=this.pack();
+    try{localStorage.setItem(SAVE_KEY,JSON.stringify(data))}catch(e){}
+    try{if(player)await player.setData(data)}catch(e){}
+  },
+  applyOffline(){
+    const elapsed=clamp((now()-(S.lastSaveTime||now()))/1000,0,MAX_OFFLINE);
+    const inc=calcAutoIncome()*elapsed;
+    if(elapsed>=60 && inc>0){
+      pendingOffline=inc;pendingOfflineBase=inc;
+      S.coins+=inc;S.totalCoins+=inc;
+      modal={type:'offline'};
+    }
+    S.lastSaveTime=now();
+  }
+};
+
+/* ---------- SDK ---------- */
+async function initSDK(){
+  try{
+    if(typeof YaGames==='undefined')throw new Error('SDK unavailable');
+    sdk=await YaGames.init();
+    sdkReady=true;
+    try{lang=(sdk.environment?.i18n?.lang||'ru').toLowerCase().startsWith('en')?'en':'ru'}catch(e){}
+    try{await SaveSystem.load()}catch(e){}
+    try{sdk.features?.LoadingAPI?.ready()}catch(e){}
+    try{sdk.features?.GameplayAPI?.start()}catch(e){}
+    try{
+      const r=await sdk.adv.getBannerAdvStatus();
+      if(!r.stickyAdvIsShowing && !document.fullscreenElement){
+        await sdk.adv.showBannerAdv(); bannerShown=true;
+      }else bannerShown=!!r.stickyAdvIsShowing;
+    }catch(e){}
+    try{
+      sdk.on?.('game_api_pause',()=>{pauseGame();muteAudio()});
+      sdk.on?.('game_api_resume',()=>{if(!document.hidden)resumeGame();unmuteAudio()});
+    }catch(e){}
+  }catch(e){
+    sdkReady=false;
+    try{await SaveSystem.load()}catch(err){}
+    try{localStorage.setItem('block_miner_offline','1')}catch(err){}
+  }
+}
+
+/* ---------- управление паузой ---------- */
+function muteAudio(){AudioSystem.mute()}
+function unmuteAudio(){if(!paused || !hiddenPaused)AudioSystem.unmute()}
+function pauseGame(){
+  if(!paused){paused=true;try{sdk?.features?.GameplayAPI?.stop()}catch(e){}}
+}
+function resumeGame(){
+  if(!document.hidden){paused=false;try{sdk?.features?.GameplayAPI?.start()}catch(e){}}
+}
+
+/* ---------- реклама ---------- */
+const AdManager={
+  canReward(){
+    if(!sdkReady || !sdk?.adv?.showRewardedVideo){toast(T('unavailable'));return false}
+    if(now()-rewardLock<5000){toast(T('tooSoon'));return false}
+    rewardLock=now();return true;
+  },
+  rewarded(kind){
+    if(!this.canReward())return;
+    let rewarded=false, opened=false;
+    const finish=()=>{
+      if(opened){resumeGame();unmuteAudio()}
+    };
+    try{
+      sdk.adv.showRewardedVideo({
+        callbacks:{
+          onOpen:()=>{opened=true;pauseGame();muteAudio()},
+          onRewarded:()=>{if(rewarded)return;rewarded=true;applyReward(kind);S.adViews++;checkAchievements();saveSoon()},
+          onClose:()=>finish(),
+          onError:()=>{finish();toast(T('unavailable'))}
+        }
+      });
+    }catch(e){finish();toast(T('unavailable'))}
+  },
+  fullscreen(reason=''){
+    if(!sdkReady || !sdk?.adv?.showFullscreenAdv)return;
+    if(now()-sessionStart<120000)return;
+    if(now()-lastInterstitial<180000)return;
+    if(S.doubleUntil>now()||S.x5Until>now())return;
+    lastInterstitial=now();
+    let opened=false;
+    try{
+      sdk.adv.showFullscreenAdv({
+        callbacks:{
+          onOpen:()=>{opened=true;pauseGame();muteAudio()},
+          onClose:()=>{if(opened||true){resumeGame();unmuteAudio()}},
+          onError:()=>{resumeGame();unmuteAudio()}
+        }
+      });
+    }catch(e){resumeGame();unmuteAudio()}
+  },
+  async sticky(){
+    if(!sdkReady||!sdk?.adv)return;
+    try{
+      const r=await sdk.adv.getBannerAdvStatus();
+      if(!r.stickyAdvIsShowing && !document.fullscreenElement){
+        const x=await sdk.adv.showBannerAdv();bannerShown=!!x.stickyAdvIsShowing;
+      }else bannerShown=!!r.stickyAdvIsShowing;
+    }catch(e){}
+  }
+};
+
+function applyReward(kind){
+  const center={x:W/2,y:H*.48};
+  switch(kind){
+    case 'double':
+      S.doubleUntil=Math.max(S.doubleUntil,now())+60000;
+      rewardFX('×2',center.x,center.y,'#ffd700');toast(T('x2'));break;
+    case 'offline':
+      const amount=calcAutoIncome()*600;
+      S.coins+=amount;S.totalCoins+=amount;
+      rewardFX('+'+fmt(amount),center.x,center.y,'#7dff58');toast('+'+fmt(amount)+' '+T('coins'));break;
+    case 'offlineDouble':
+      const extra=Math.max(0,pendingOfflineBase);
+      S.coins+=extra;S.totalCoins+=extra;
+      rewardFX('×2 +'+fmt(extra),center.x,center.y,'#ffd84a');
+      pendingOffline=0;pendingOfflineBase=0;
+      toast('×2: +'+fmt(extra)+' '+T('coins'));break;
+    case 'chest':
+      const emerald=Math.random()<.25;
+      if(emerald){
+        const n=rr(1,5);S.emeralds+=n;rewardFX('+'+n+' 💎',center.x,center.y,'#4aedd9');toast(T('reward')+': +'+n+' '+T('emeralds'));
+      }else{
+        const n=rr(100,10000);S.coins+=n;S.totalCoins+=n;rewardFX('+'+fmt(n),center.x,center.y,'#ffd700');toast(T('reward')+': +'+fmt(n)+' '+T('coins'));
+      }
+      AudioSystem.chest();break;
+    case 'x5':
+      S.x5Until=Math.max(S.x5Until,now())+30000;
+      rewardFX('×5',center.x,center.y,'#66ccff');toast(T('x5'));break;
+    case 'revive':
+      S.streak=Math.max(S.bestStreak||1,1);S.lastClick=now();S.reviveAvailable=false;
+      rewardFX('STREAK!',center.x,center.y,'#ff9d22');toast(T('restore'));break;
+    case 'triple':
+      doPrestige(3);break;
+  }
+  AudioSystem.reward();
+}
+
+function rewardFX(label,x,y,color){
+  floats.push({x,y,text:label,color,life:1,vy:-80,size:34});
+  for(let i=0;i<20;i++)particles.push({x,y,vx:rand(-180,180),vy:rand(-180,30),life:1,size:rr(3,7),color});
+  flash=.65;
+}
+
+/* ---------- игровая механика ---------- */
+function currentBlock(){
+  let idx=0;
+  for(let i=0;i<BLOCKS.length;i++)if(S.totalCoins>=BLOCKS[i].unlock)idx=i;
+  return BLOCKS[idx];
+}
+function blockMaxUnlocked(){
+  let i=0;for(let j=0;j<BLOCKS.length;j++)if(S.totalCoins>=BLOCKS[j].unlock)i=j;return i;
+}
+function calcBaseDamage(){return 1+(S.pick>0?PICKS[S.pick-1].bonus:0)}
+function calcAutoIncome(){
+  let v=0;
+  for(let i=0;i<MINERS.length;i++)v+=MINERS[i].income*S.miners[i];
+  return v*(1+S.crystals*.10);
+}
+function incomeMult(){
+  let m=1+Math.min(50,S.streak)/100;
+  m*=1+S.crystals*.10;
+  if(S.doubleUntil>now())m*=2;
+  if(S.x5Until>now())m*=5;
+  return m;
+}
+function clickPower(){
+  const b=currentBlock();
+  return calcBaseDamage()*incomeMult();
+}
+let blockHP=1;
+function syncBlockHP(force=false){
+  const b=currentBlock();
+  if(force||blockHP<=0)blockHP=b.hp;
+}
+syncBlockHP(true);
+
+function mine(){
+  if(paused||modal)return;
+  AudioSystem.init();
+  const t=now();
+  if(t-S.lastClick>2000)S.streak=0;
+  S.streak++;
+  S.bestStreak=Math.max(S.bestStreak,S.streak);
+  S.lastClick=t;S.totalClicks++;
+  const b=currentBlock();
+  const before=blockHP;
+  const dmg=calcBaseDamage()*(S.x5Until>t?5:1);
+  blockHP-=dmg;
+  shake=8;blockScale=1.05;
+  spawnHitParticles(b);
+  floats.push({x:W/2+rand(-20,20),y:H*.42,text:'+'+fmt(Math.max(1,Math.floor(b.reward*incomeMult()))),color:'#fff',life:1,vy:-65,size:28});
+  AudioSystem.click();
+  if(blockHP<=0){
+    const reward=Math.max(1,Math.floor(b.reward*incomeMult()));
+    S.coins+=reward;S.totalCoins+=reward;S.broken++;
+    if(Math.random()<.05){S.emeralds++;rewardFX('+1 💎',W/2+rand(-100,100),H*.42,'#4aedd9')}
+    AudioSystem.break();flash=.35;
+    for(let i=0;i<24;i++)particles.push({x:W/2+rand(-120,120),y:H*.47+rand(-60,80),vx:rand(-220,220),vy:rand(-240,40),life:1,size:rr(4,9),color:b.side});
+    const old=BLOCKS.findIndex(x=>x.id===b.id);
+    blockHP=b.hp;
+    if(blockMaxUnlocked()>old)toast(T('unlocked'));
+    checkAchievements();
+  }
+}
+
+function spawnHitParticles(b){
+  const colors=[b.top,b.side,b.dark,'#ffffff'];
+  for(let i=0;i<rr(8,12);i++)particles.push({
+    x:W/2+rand(-100,100),y:H*.46+rand(-70,70),vx:rand(-150,150),vy:rand(-170,30),
+    life:1,size:rr(3,8),color:colors[rr(0,colors.length-1)]
+  });
+}
+
+function update(dt){
+  if(paused)return;
+  // Авто-доход
+  const income=calcAutoIncome();
+  if(income>0){
+    const add=income*dt*(S.doubleUntil>now()?2:1)*(S.x5Until>now()?5:1);
+    S.coins+=add;S.totalCoins+=add;
+  }
+  if(S.lastClick && now()-S.lastClick>2000 && S.streak>0){
+    if(S.streak>=3){S.reviveAvailable=true;modal={type:'revive'}}
+    S.streak=0;
+  }
+  if(blockScale>1)blockScale=Math.max(1,blockScale-dt*.35);
+  shake*=Math.pow(.01,dt);
+  flash=Math.max(0,flash-dt*1.8);
+  for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=420*dt;p.life-=dt*1.8}
+  particles=particles.filter(p=>p.life>0);
+  for(const f of floats){f.y+=f.vy*dt;f.life-=dt*1.1}
+  floats=floats.filter(f=>f.life>0);
+  for(const s of sparks){s.life-=dt;s.a+=dt*5}
+  sparks=sparks.filter(s=>s.life>0);
+  autosaveTimer+=dt;
+  if(autosaveTimer>=10){autosaveTimer=0;saveSoon()}
+  checkAchievements();
+}
+
+let saveQueued=false;
+function saveSoon(){
+  if(saveQueued)return;saveQueued=true;
+  setTimeout(async()=>{saveQueued=false;await SaveSystem.save()},50);
+}
+
+/* ---------- достижения ---------- */
+const ACH=[
+ {id:'first',name:'first',icon:'⛏',test:()=>S.totalClicks>=1},
+ {id:'miner',name:'miner',icon:'⚒',test:()=>S.totalClicks>=1000},
+ {id:'rich',name:'rich',icon:'🪙',test:()=>S.totalCoins>=1000000},
+ {id:'automation',name:'automation',icon:'⚙',test:()=>S.miners.reduce((a,b)=>a+b,0)>=10},
+ {id:'diamondAge',name:'diamondAge',icon:'◆',test:()=>S.totalCoins>=50000},
+ {id:'adMagnate',name:'adMagnate',icon:'▶',test:()=>S.adViews>=10}
+];
+function checkAchievements(){
+  for(const a of ACH){
+    if(!S.achievements[a.id] && a.test()){
+      S.achievements[a.id]=true;
+      AudioSystem.achievement();
+      toast('🏆 '+T(a.name));
+    }
+  }
+}
+
+/* ---------- магазин ---------- */
+function pickCost(i){return Math.floor(PICKS[i].cost*Math.pow(PICKS[i].mult,Math.max(0,S.pick-i-1)))}
+function minerCost(i){return Math.floor(MINERS[i].cost*Math.pow(MINERS[i].mult,S.miners[i]))}
+function buyPick(i){
+  if(i<0||i>=PICKS.length)return;
+  if(i>0 && S.pick<i)return;
+  const cost=pickCost(i);
+  if(S.coins<cost){toast(T('noMoney'));return}
+  S.coins-=cost;S.pick=Math.max(S.pick,i+1);AudioSystem.buy();rewardFX('✓',W*.72,H*.28,'#63ff66');
+  saveSoon();if(cost>10000)AdManager.fullscreen('large_upgrade');
+}
+function buyMiner(i){
+  const cost=minerCost(i);
+  if(S.coins<cost){toast(T('noMoney'));return}
+  S.coins-=cost;S.miners[i]++;AudioSystem.buy();rewardFX('+'+MINERS[i].income+'/s',W*.72,H*.28,'#63ff66');
+  saveSoon();checkAchievements();
+  if(cost>10000)AdManager.fullscreen('large_upgrade');
+}
+
+/* ---------- престиж ---------- */
+function doPrestige(multiplier=1){
+  if(S.totalCoins<1000000){toast('1,000,000 '+T('coins'));return false}
+  const base=Math.max(1,Math.floor(Math.sqrt(S.totalCoins/1e6)));
+  const crystals=base*multiplier;
+  S.crystals+=crystals;S.totalCrystals+=crystals;S.prestigeCount++;
+  S.coins=0;S.pick=0;S.miners=[0,0,0,0,0];S.streak=0;
+  blockHP=1;modal=null;AudioSystem.reward();rewardFX('+'+crystals+' ✦',W/2,H*.45,'#c26cff');
+  saveSoon();setTimeout(()=>AdManager.fullscreen('prestige'),500);
+  return true;
+}
+
+/* ---------- UI helpers ---------- */
+function toast(msg){
+  toastMsg=msg;toastUntil=now()+2400;
+}
+function panel(x,y,w,h){
+  roundedRect(ctx,x,y,w,h,10,'#202631','#101820',4);
+  ctx.strokeStyle='#596575';ctx.lineWidth=2;ctx.strokeRect(x+5,y+5,w-10,h-10);
+}
+function button(r,label,fill='#2bbd4a',stroke='#0c641e',size=18){
+  const down=rectHit(pointer.x,pointer.y,r)&&pointer.down;
+  roundedRect(ctx,r.x,r.y+(down?2:0),r.w,r.h,7,fill,stroke,3);
+  text(label,r.x+r.w/2,r.y+r.h/2+(down?2:0),fitText(label,r.w-16,size), '#fff','center');
+}
+function iconButton(r,icon,label){
+  panel(r.x,r.y,r.w,r.h);
+  text(icon,r.x+r.w/2,r.y+r.h*.38,28,'#fff','center');
+  text(label,r.x+r.w/2,r.y+r.h*.78,Math.min(13,fitText(label,r.w-8,13)),'#fff','center');
+}
+function coinIcon(x,y,s=18){
+  ctx.fillStyle='#f6a900';ctx.strokeStyle='#9b5c00';ctx.lineWidth=3;
+  ctx.beginPath();ctx.arc(x,y,s,0,TAU);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#ffd84a';ctx.fillRect(x-s*.25,y-s*.55,s*.5,s*1.1);
+}
+function gemIcon(x,y,s=18){
+  ctx.fillStyle='#32e66d';ctx.strokeStyle='#087b35';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(x,y-s);ctx.lineTo(x+s*.75,y-s*.25);ctx.lineTo(x+s*.55,y+s);ctx.lineTo(x-s*.55,y+s);ctx.lineTo(x-s*.75,y-s*.25);ctx.closePath();ctx.fill();ctx.stroke();
+}
+function chestIcon(x,y,s=22){
+  ctx.fillStyle='#a66a31';ctx.strokeStyle='#4d2b12';ctx.lineWidth=3;
+  ctx.fillRect(x-s,y-s*.45,s*2,s*1.3);ctx.strokeRect(x-s,y-s*.45,s*2,s*1.3);
+  ctx.fillStyle='#f5c542';ctx.fillRect(x-4,y-s*.1,8,s*.45);
+}
+function drawProgressBar(x,y,w,h,p,fill='#43db4b'){
+  roundedRect(ctx,x,y,w,h,5,'#10151c','#0a0d11',3);
+  roundedRect(ctx,x+3,y+3,(w-6)*clamp(p,0,1),h-6,3,fill,null,0);
+}
+
+/* ---------- фон ---------- */
+function drawBackground(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#1686e8');g.addColorStop(.6,'#5fc6ff');g.addColorStop(1,'#5eaf38');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // облака
+  for(let i=0;i<8;i++){
+    const x=((i*233+120)% (W+260))-130,y=70+(i%3)*75,sc=1+(i%2)*.35;
+    ctx.fillStyle='rgba(255,255,255,.58)';
+    ctx.fillRect(x,y,100*sc,25);ctx.fillRect(x+25*sc,y-15,70*sc,35);ctx.fillRect(x+70*sc,y+10,80*sc,28);
+  }
+  // дальние горы/лес
+  ctx.fillStyle='#7fb7a1';
+  for(let x=-50;x<W+100;x+=90){const h=80+(x*7%70);ctx.beginPath();ctx.moveTo(x,H*.55);ctx.lineTo(x+45,H*.55-h);ctx.lineTo(x+90,H*.55);ctx.fill()}
+  for(let x=-30;x<W+50;x+=45){
+    const y=H*.56+((x*13)%55),h=80+((x*17)%70);
+    ctx.fillStyle='#4e9b4d';ctx.fillRect(x,y-h,35,h);
+    ctx.fillStyle='#3d823f';ctx.fillRect(x-8,y-h+12,52,30);
+  }
+  // вода
+  ctx.fillStyle='#2c9bd3';ctx.fillRect(0,H*.67,W,H*.16);
+  for(let x=0;x<W;x+=70){ctx.fillStyle='rgba(255,255,255,.18)';ctx.fillRect(x,H*.72,35,4)}
+  // земля
+  ctx.fillStyle='#6fba38';ctx.fillRect(0,H*.83,W,H*.17);
+  for(let x=0;x<W;x+=24){for(let y=H*.83;y<H;y+=24){
+    ctx.fillStyle=((x/24+y/24)%2?'#65ad35':'#78c23d');ctx.fillRect(x,y,24,24);
+    if((x+y)%120===0){ctx.fillStyle='#4f8e2e';ctx.fillRect(x+7,y+9,12,6)}
+  }}
+}
+
+/* ---------- центральный блок ---------- */
+function drawBlock(){
+  const mobile=isMobile();
+  // На телефоне блок занимает заметную часть экрана, но оставляет место под магазин.
+  const b=currentBlock(),cx=W*(mobile ? .5 : .47), cy=H*(mobile ? .45 : .53);
+  ctx.save();ctx.translate(cx+rand(-shake,shake),cy+rand(-shake,shake));ctx.scale(blockScale,blockScale);
+  const size=mobile
+    ? Math.min(W*.58,H*.27,280)
+    : Math.min(W*.28,H*.28,270);
+  const topH=size*.27, depth=size*.78;
+  // тень
+  ctx.fillStyle='rgba(0,0,0,.25)';ctx.fillRect(-size*.48,depth*.55,size*.96,25);
+  // боковые грани
+  ctx.fillStyle=b.dark;ctx.beginPath();ctx.moveTo(-size/2,0);ctx.lineTo(size/2,0);ctx.lineTo(size/2,depth);ctx.lineTo(0,depth+size*.20);ctx.lineTo(-size/2,depth);ctx.closePath();ctx.fill();
+  // пиксельная текстура
+  const cell=Math.max(8,Math.floor(size/11));
+  for(let y=cell;y<depth;y+=cell)for(let x=-size/2+cell/2;x<size/2;x+=cell){
+    if(Math.random()<.34){ctx.fillStyle=(Math.random()<.5?b.side:b.dark);ctx.fillRect(x,y,cell*.7,cell*.65)}
+  }
+  // верх
+  ctx.fillStyle=b.top;ctx.beginPath();ctx.moveTo(-size/2,-topH*.2);ctx.lineTo(0,-topH);ctx.lineTo(size/2,-topH*.2);ctx.lineTo(0,0);ctx.closePath();ctx.fill();
+  if(b.id==='dirt'){
+    ctx.fillStyle='#46a82a';for(let i=0;i<26;i++)ctx.fillRect(rand(-size/2,size/2),rand(-topH*.9,-3),rr(3,8),rr(3,7));
+  }else{
+    for(let i=0;i<22;i++){ctx.fillStyle=Math.random()<.5?b.side:b.dark;ctx.fillRect(rand(-size/2,size/2),rand(-topH*.8,-2),rr(3,7),rr(3,6))}
+  }
+  // кирка
+  const px=size*.56,py=-size*.65;
+  ctx.save();ctx.translate(px,py);ctx.rotate(-.55);
+  ctx.fillStyle='#70421e';ctx.fillRect(-10,0,20,size*.85);
+  const pick=PICKS[Math.max(0,S.pick-1)]||PICKS[0];
+  ctx.fillStyle=pick.color;ctx.strokeStyle='#15202a';ctx.lineWidth=5;
+  ctx.beginPath();ctx.moveTo(-size*.52,-12);ctx.lineTo(size*.30,-12);ctx.lineTo(size*.52,8);ctx.lineTo(size*.30,23);ctx.lineTo(-size*.38,5);ctx.closePath();ctx.fill();ctx.stroke();
+  ctx.restore();
+  ctx.restore();
+  // +N / подсказка
+  if(S.totalClicks===0)text(T('tap'),cx,cy-size*.72,22,'#fff','center');
+  const hpRatio=blockHP/b.hp;
+  const barW=Math.min(290,W*.28),barY=cy+size*.92;
+  drawProgressBar(cx-barW/2,barY,barW,22,hpRatio,'#2edb42');
+  text(`${Math.max(0,Math.ceil(blockHP))}/${b.hp}`,cx,barY+11,15,'#fff','center');
+  text(`${T(b.name)}  •  ${b.reward} 🪙`,cx,barY+40,15,'#fff','center');
+  // бусты
+  let y=barY-60;
+  if(S.doubleUntil>now()){text('×2  '+Math.ceil((S.doubleUntil-now())/1000)+'s',cx,y,17,'#ffe16b','center');y-=22}
+  if(S.x5Until>now()){text('×5  '+Math.ceil((S.x5Until-now())/1000)+'s',cx,y,17,'#70efff','center');y-=22}
+}
+
+/* ---------- верхняя панель ---------- */
+function drawTop(){
+  const mobile=isMobile();
+  const pad=mobile?8:18, h=mobile?58:72;
+  panel(pad,8,mobile?W-pad*2:470,h);
+  coinIcon(pad+27,8+h/2,17);
+  text(fmt(S.coins),pad+52,8+h/2,22,'#fff');
+  if(mobile){
+    gemIcon(W-112,8+h/2,15);
+    text(fmt(S.emeralds),W-90,8+h/2,19,'#fff');
+    const bonus={x:W-78,y:72,w:70,h:40};
+    button(bonus,'🎁','#ffad12','#8c5300',18);
+    buttonRects.push({id:'bonus',r:bonus});
+    const sy=76, sw=W-16;
+    panel(pad,sy,sw,48);
+    text('🔥 '+T('streak')+': '+S.streak,pad+12,sy+19,16,'#fff');
+    text('+'+Math.min(50,S.streak)+'%',pad+12,sy+39,13,'#ffd54a');
+    drawProgressBar(pad+105,sy+16,sw-120,14,Math.min(1,S.streak/50),'#ffb500');
+    // Три маленькие системные кнопки справа от серии.
+    const yy=132;
+    const bs=[['🏆','ach'],['✦','prestige'],[S.sound?'🔊':'🔇','sound']];
+    bs.forEach((v,i)=>{
+      const r={x:W-8-(3-i)*54,y:yy,w:48,h:34};
+      button(r,v[0],'#303943','#111',16);
+      buttonRects.push({id:v[1],r});
+    });
+  }else{
+    gemIcon(pad+315,8+h/2,17);text(fmt(S.emeralds),pad+342,8+h/2,22,'#fff');
+    const br={x:500,y:10,w:170,h:72};button(br,'🎁 '+T('bonus'),'#ffad12','#8c5300',22);buttonRects.push({id:'bonus',r:br});
+    iconButton({x:W-245,y:10,w:72,h:72},'🏆',T('achievements'));
+    iconButton({x:W-165,y:10,w:72,h:72},'✦',T('prestige'));
+    iconButton({x:W-85,y:10,w:72,h:72},S.sound?'🔊':'🔇',S.sound?'Звук':'Звук');
+    buttonRects.push({id:'ach',r:{x:W-245,y:10,w:72,h:72}},{id:'prestige',r:{x:W-165,y:10,w:72,h:72}},{id:'sound',r:{x:W-85,y:10,w:72,h:72}});
+    const sy=94,sw=350;
+    panel(pad,sy,sw,66);
+    text('🔥 '+T('streak')+': '+S.streak,pad+18,sy+22,18,'#fff');
+    text('+'+Math.min(50,S.streak)+'% '+T('income'),pad+18,sy+47,15,'#ffd54a');
+    drawProgressBar(pad+145,sy+31,sw-165,16,Math.min(1,S.streak/50),'#ffb500');
+  }
+}
+
+/* ---------- боковые панели ---------- */
+function drawLeftPanel(){
+  if(isMobile())return;
+  const x=16,y=170,w=290;
+  panel(x,y,w,185);text(T('active'),x+16,y+28,20,'#fff');
+  coinIcon(x+28,y+70,14);text(T('x2'),x+52,y+70,16,'#ffe15a');text(S.doubleUntil>now()?fmt((S.doubleUntil-now())/1000)+'s':'—',x+52,y+94,14,'#8dff8d');
+  text('⚡',x+28,y+127,22,'#66ddff');text(T('x5'),x+52,y+127,16,'#66ddff');text(S.x5Until>now()?fmt((S.x5Until-now())/1000)+'s':'—',x+52,y+151,14,'#8dff8d');
+  panel(x,365,w,105);text(T('offline'),x+16,392,20,'#fff');coinIcon(x+27,427,14);text('+'+fmt(calcAutoIncome())+' '+T('coins')+' '+T('second'),x+52,427,13,'#ffd54a');
+  const r={x:x+15,y:438,w:w-30,h:42};button(r,'▶ '+T('doubleOffline'),'#2bbd4a','#0b641d',14);buttonRects.push({id:'offlineAd',r});
+  panel(x,480,w,105);gemIcon(x+28,515,16);text(T('emeralds'),x+54,510,18,'#fff');text(T('emeraldChance'),x+54,535,14,'#7cff86');text('('+T('destroy')+')',x+54,557,12,'#bbb');
+}
+
+function drawShop(){
+  const mobile=isMobile();
+  if(mobile)return;
+  const x=W-390,y=100,w=374,h=H-180;
+  panel(x,y,w,h);text(T('shop'),x+w/2,y+28,24,'#fff','center');
+  const tabY=y+50, tw=w/2-12;
+  const r1={x:x+8,y:tabY,w:tw,h:42},r2={x:x+w/2+4,y:tabY,w:tw,h:42};
+  button(r1,T('pickaxes'),tab==='pick'?'#168de8':'#303943','#111',15);
+  button(r2,T('miners'),tab==='miner'?'#168de8':'#303943','#111',15);
+  buttonRects.push({id:'tabPick',r:r1},{id:'tabMiner',r:r2});
+  const start=tabY+50, rowH=73;
+  if(tab==='pick'){
+    PICKS.forEach((p,i)=>drawShopRow(x+8,start+i*rowH,w-16,rowH-5,p,i,'pick'));
+  }else{
+    MINERS.forEach((m,i)=>drawShopRow(x+8,start+i*rowH,w-16,rowH-5,m,i,'miner'));
+  }
+}
+function drawShopRow(x,y,w,h,item,i,type){
+  panel(x,y,w,h);const iconX=x+38,iconY=y+h/2;
+  // пиксельная иконка
+  ctx.fillStyle=item.color;ctx.fillRect(iconX-16,iconY-18,12,36);ctx.fillRect(iconX-10,iconY-6,42,10);
+  if(type==='miner'){ctx.fillStyle=item.color;ctx.fillRect(iconX-18,iconY-18,36,36);ctx.fillStyle='#1b1b1b';ctx.fillRect(iconX-10,iconY-8,7,7);ctx.fillRect(iconX+5,iconY-8,7,7)}
+  text(T(item.name),x+78,y+20,14,'#fff');
+  if(type==='pick'){
+    text('+'+item.bonus+' '+T('damage'),x+78,y+42,12,'#69ddff');
+    text('×'+item.mult.toFixed(2),x+190,y+42,12,'#79e35a');
+    const cost=pickCost(i);coinIcon(x+85,y+h-13,9);text(fmt(cost),x+100,y+h-13,12,'#fff');
+    const locked=i>0&&S.pick<i;
+    const r={x:x+w-82,y:y+16,w:72,h:36};
+    button(r,locked?'🔒':T('buy'),locked?'#5a6068':'#24b844','#0b651b',12);
+    buttonRects.push({id:'pick'+i,r});
+  }else{
+    text('+'+item.income+T('second'),x+78,y+42,12,'#69ddff');
+    text('×'+item.mult.toFixed(2),x+178,y+42,12,'#79e35a');
+    const cost=minerCost(i);coinIcon(x+85,y+h-13,9);text(fmt(cost),x+100,y+h-13,12,'#fff');
+    const r={x:x+w-82,y:y+16,w:72,h:36};button(r,T('buy'),'#24b844','#0b651b',12);buttonRects.push({id:'miner'+i,r});
+  }
+}
+
+/* ---------- нижняя панель ---------- */
+function drawBottom(){
+  const mobile=isMobile();
+  if(mobile){
+    // Нижний магазин — главный мобильный блок управления.
+    const y=H-205, ph=197;
+    panel(6,y,W-12,ph);
+    const rrw=(W-30)/2;
+    const r1={x:10,y:y+8,w:rrw,h:38};
+    const r2={x:16+rrw,y:y+8,w:rrw,h:38};
+    button(r1,'⛏ '+T('pickaxes'),tab==='pick'?'#168de8':'#303943','#111',13);
+    button(r2,'⚙ '+T('miners'),tab==='miner'?'#168de8':'#303943','#111',13);
+    buttonRects.push({id:'tabPick',r:r1},{id:'tabMiner',r:r2});
+
+    const items=tab==='pick'?PICKS:MINERS;
+    const type=tab==='pick'?'pick':'miner';
+    // На телефоне показываем первые две позиции, остальные доступны после покупки/прокрутки через магазин.
+    for(let i=0;i<2;i++){
+      const item=items[i];
+      const ry=y+52+i*66;
+      const rr={x:10,y:ry,w:W-20,h:58};
+      panel(rr.x,rr.y,rr.w,rr.h);
+      const iconX=rr.x+27,iconY=ry+29;
+      ctx.fillStyle=item.color;
+      if(type==='miner'){
+        ctx.fillRect(iconX-15,iconY-15,30,30);
+        ctx.fillStyle='#171717';ctx.fillRect(iconX-8,iconY-7,5,5);ctx.fillRect(iconX+5,iconY-7,5,5);
+      }else{
+        ctx.fillRect(iconX-12,iconY-16,9,32);ctx.fillRect(iconX-8,iconY-5,30,9);
+      }
+      text(T(item.name),rr.x+52,ry+18,12,'#fff');
+      if(type==='pick'){
+        text('+'+item.bonus+' '+T('damage')+'  ×'+item.mult.toFixed(2),rr.x+52,ry+37,10,'#69ddff');
+        const cost=pickCost(i);coinIcon(rr.x+53,ry+50,7);text(fmt(cost),rr.x+64,ry+50,10,'#ffd54a');
+        const locked=i>0&&S.pick<i;
+        const br={x:rr.x+rr.w-76,y:ry+11,w:66,h:34};
+        button(br,locked?'🔒':T('buy'),locked?'#5a6068':'#24b844','#0b651b',10);
+        buttonRects.push({id:'pick'+i,r:br});
+      }else{
+        text('+'+item.income+T('second')+'  ×'+item.mult.toFixed(2),rr.x+52,ry+37,10,'#69ddff');
+        const cost=minerCost(i);coinIcon(rr.x+53,ry+50,7);text(fmt(cost),rr.x+64,ry+50,10,'#ffd54a');
+        const br={x:rr.x+rr.w-76,y:ry+11,w:66,h:34};
+        button(br,T('buy'),'#24b844','#0b651b',10);
+        buttonRects.push({id:'miner'+i,r:br});
+      }
+    }
+    // Бустрекинг в самой нижней строке.
+    const br={x:10,y:y+184-42,w:W-20,h:34};
+    button(br,'⚡ '+(S.x5Until>now()?'×5 '+Math.ceil((S.x5Until-now())/1000)+'s':'×5 '+T('bonus')),
+      S.x5Until>now()?'#1598d6':'#2f3740','#111',11);
+    buttonRects.push({id:'quickBonus',r:br});
+  }else{
+    const y=H-88;
+    panel(15,y,510,72);
+    const items=[['⛏',T('skins')],['📊',T('upgrades')],['🏆',T('achievements')],['✦',T('prestige')]];
+    items.forEach((it,i)=>{const r={x:18+i*125,y:y+5,w:119,h:62};iconButton(r,it[0],it[1]);buttonRects.push({id:['skins','upgrades','ach','prestige'][i],r})});
+    panel(W-360,y,335,72);chestIcon(W-330,y+35,22);text(T('chest'),W-300,y+28,16,'#fff');text('🎁 '+T('bonus'),W-300,y+52,14,'#ffd35a');
+    const br={x:W-155,y:y+8,w:140,h:56};button(br,'🎁 '+T('bonus'),'#ffad12','#8c5300',16);buttonRects.push({id:'bonus',r:br});
+  }
+}
+
+/* ---------- модалки ---------- */
+function drawModal(){
+  if(!modal)return;
+  ctx.fillStyle='rgba(0,0,0,.66)';ctx.fillRect(0,0,W,H);
+  const mobile=isMobile(),mw=Math.min(W-24,640),mh=Math.min(H-40,540),x=(W-mw)/2,y=(H-mh)/2;
+  panel(x,y,mw,mh);
+  if(modal.type==='rewards')drawRewardModal(x,y,mw,mh);
+  else if(modal.type==='offline')drawOfflineModal(x,y,mw,mh);
+  else if(modal.type==='revive')drawReviveModal(x,y,mw,mh);
+  else if(modal.type==='prestige')drawPrestigeModal(x,y,mw,mh);
+  else if(modal.type==='achievements')drawAchievementsModal(x,y,mw,mh);
+}
+function modalTitle(s,x,y,w){text(s,x+w/2,y+35,24,'#fff','center')}
+function modalBtn(id,r,label,fill='#2bbd4a'){button(r,label,fill,'#111',14);buttonRects.push({id,r})}
+function drawRewardModal(x,y,w,h){
+  modalTitle('🎁 '+T('rewardTitle'),x,y,w);
+  const labels=[T('rewardA'),T('rewardB'),T('rewardC'),T('rewardD'),T('rewardE')];
+  const ids=['rewardDouble','rewardOffline','rewardChest','rewardX5','rewardRevive'];
+  const colors=['#e5a900','#25a94a','#9b5cff','#158fd0','#e55c25'];
+  const yy=y+72;
+  labels.forEach((lab,i)=>{
+    const r={x:x+28,y:yy+i*68,w:w-56,h:54};
+    modalBtn(ids[i],r,'▶ '+T('adLabel')+' → '+lab,colors[i]);
+    text(T('adHint'),r.x+10,r.y+45,10,'#ddd');
+  });
+  modalBtn('closeModal',{x:x+w-120,y:y+h-52,w:92,h:38},T('close'),'#4c5560');
+}
+function drawOfflineModal(x,y,w,h){
+  modalTitle('⛏ '+T('offlineTitle'),x,y,w);
+  const sec=clamp((pendingOfflineBase/calcAutoIncome()),0,MAX_OFFLINE);
+  const hh=Math.floor(sec/3600),mm=Math.floor(sec%3600/60);
+  text(`${hh} ${T('hours')} ${mm} ${T('minutes')}`,x+w/2,y+100,24,'#ffd44c','center');
+  text('+'+fmt(pendingOfflineBase)+' '+T('coins'),x+w/2,y+145,30,'#fff','center');
+  const r={x:x+50,y:y+190,w:w-100,h:58};modalBtn('offlineDouble',r,'▶ '+T('doubleOffline'),'#25b94b');
+  modalBtn('closeOffline',{x:x+w/2-70,y:y+270,w:140,h:44},T('continue'),'#4c5560');
+}
+function drawReviveModal(x,y,w,h){
+  modalTitle('🔥 '+T('reviveTitle'),x,y,w);
+  text(T('reviveText'),x+w/2,y+100,17,'#fff','center');
+  text('🔥 '+S.bestStreak+' '+T('streak'),x+w/2,y+145,25,'#ffad22','center');
+  modalBtn('reviveAd',{x:x+50,y:y+185,w:w-100,h:58},'▶ '+T('restore'),'#e5a900');
+  modalBtn('closeRevive',{x:x+w/2-110,y:y+260,w:220,h:44},T('skip'),'#4c5560');
+}
+function drawPrestigeModal(x,y,w,h){
+  modalTitle('✦ '+T('prestigeTitle'),x,y,w);
+  text(T('prestigeText'),x+w/2,y+95,15,'#fff','center');
+  const c=Math.max(1,Math.floor(Math.sqrt(Math.max(0,S.totalCoins)/1e6)));
+  text('✦ '+c+' '+T('crystals'),x+w/2,y+145,25,'#ce77ff','center');
+  modalBtn('prestigeDo',{x:x+45,y:y+180,w:w-90,h:54},T('prestigeBtn'),'#8e43d4');
+  modalBtn('tripleAd',{x:x+45,y:y+248,w:w-90,h:50},'▶ '+T('triple'),'#e5a900');
+  modalBtn('closeModal',{x:x+w/2-70,y:y+h-58,w:140,h:40},T('later'),'#4c5560');
+}
+function drawAchievementsModal(x,y,w,h){
+  modalTitle('🏆 '+T('achievements'),x,y,w);
+  ACH.forEach((a,i)=>{
+    const yy=y+68+i*57, unlocked=!!S.achievements[a.id];
+    panel(x+25,yy,w-50,48);text(a.icon,x+48,yy+24,22,unlocked?'#ffd34c':'#777','center');
+    text(T(a.name),x+75,yy+24,14,unlocked?'#fff':'#999');
+    text(unlocked?'✓':'○',x+w-55,yy+24,20,unlocked?'#62e86a':'#666','center');
+  });
+  modalBtn('closeModal',{x:x+w/2-70,y:y+h-55,w:140,h:40},T('close'),'#4c5560');
+}
+
+/* ---------- ввод ---------- */
+const pointer={x:-1,y:-1,down:false};
+function eventPos(e){
+  const r=canvas.getBoundingClientRect();
+  return {x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};
+}
+canvas.addEventListener('pointerdown',e=>{
+  e.preventDefault();AudioSystem.init();const p=eventPos(e);pointer.x=p.x;pointer.y=p.y;pointer.down=true;handlePointer(p.x,p.y);
+});
+canvas.addEventListener('pointermove',e=>{const p=eventPos(e);pointer.x=p.x;pointer.y=p.y});
+window.addEventListener('pointerup',()=>pointer.down=false);
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+window.addEventListener('keydown',e=>{
+  if(e.code==='Space'){e.preventDefault();mine()}
+  if(e.code==='Escape'&&modal)modal=null;
+});
+
+function handlePointer(x,y){
+  // В модальном окне сначала проверяем кнопки
+  for(let i=buttonRects.length-1;i>=0;i--){
+    const b=buttonRects[i];if(rectHit(x,y,b.r)){activate(b.id);return}
+  }
+  if(modal)return;
+  const mobile=isMobile(),cx=W*(mobile?.5:.47),cy=H*(mobile?.45:.53);
+  const hitR=mobile?Math.min(W*.31,H*.20,155):Math.min(W*.24,H*.25,230);
+  if(Math.hypot(x-cx,y-cy)<hitR)mine();
+}
+function activate(id){
+  switch(id){
+    case'bonus':modal={type:'rewards'};break;
+    case'quickBonus':modal={type:'rewards'};break;
+    case'rewardDouble':modal=null;AdManager.rewarded('double');break;
+    case'rewardOffline':modal=null;AdManager.rewarded('offline');break;
+    case'rewardChest':modal=null;AdManager.rewarded('chest');break;
+    case'rewardX5':modal=null;AdManager.rewarded('x5');break;
+    case'rewardRevive':modal=null;AdManager.rewarded('revive');break;
+    case'offlineAd':
+      if(pendingOffline>0){modal=null;AdManager.rewarded('offlineDouble')}break;
+    case'offlineDouble':
+      modal=null;AdManager.rewarded('offlineDouble');break;
+    case'closeOffline':pendingOffline=0;pendingOfflineBase=0;modal=null;break;
+    case'reviveAd':modal=null;AdManager.rewarded('revive');break;
+    case'closeRevive':S.reviveAvailable=false;modal=null;break;
+    case'prestige':modal={type:'prestige'};break;
+    case'prestigeDo':doPrestige();break;
+    case'tripleAd':modal=null;AdManager.rewarded('triple');break;
+    case'ach':case'achievements':modal={type:'achievements'};break;
+    case'closeModal':modal=null;break;
+    case'sound':S.sound=!S.sound;AudioSystem.unmute();saveSoon();break;
+    case'tabPick':tab='pick';break;
+    case'tabMiner':tab='miner';break;
+    case'skins':toast(T('skins')+' — скоро');break;
+    case'upgrades':toast(T('upgrades')+' — '+fmt(calcAutoIncome())+' '+T('second'));break;
+    case'pick0':case'pick1':case'pick2':case'pick3':case'pick4':case'pick5':buyPick(Number(id.slice(4)));break;
+    case'miner0':case'miner1':case'miner2':case'miner3':case'miner4':buyMiner(Number(id.slice(5)));break;
+  }
+}
+
+/* ---------- resize ---------- */
+function isMobile(){return W<760 || H>W*1.12}
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  W=innerWidth;H=innerHeight;
+  canvas.width=Math.floor(W*DPR);canvas.height=Math.floor(H*DPR);
+  canvas.style.width=W+'px';canvas.style.height=H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.imageSmoothingEnabled=false;
+  // Канвас логически работает в CSS-пикселях.
+}
+window.addEventListener('resize',resize);
+window.addEventListener('orientationchange',()=>setTimeout(resize,150));
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){hiddenPaused=true;pauseGame();muteAudio();saveSoon()}
+  else{hiddenPaused=false;resumeGame();unmuteAudio();AdManager.sticky()}
+});
+
+/* ---------- рендер ---------- */
+function render(){
+  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.imageSmoothingEnabled=false;
+  drawBackground();buttonRects=[];
+  drawTop();
+  drawLeftPanel();
+  drawBlock();
+  drawShop();
+  drawBottom();
+  // Нижняя зарезервированная зона под sticky banner.
+  if(bannerShown && H>520){ctx.fillStyle='rgba(0,0,0,.10)';ctx.fillRect(0,H-60,W,60)}
+  // эффекты
+  for(const p of particles){ctx.globalAlpha=clamp(p.life,0,1);ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size)}
+  for(const f of floats){ctx.globalAlpha=clamp(f.life,0,1);text(f.text,f.x,f.y,f.size,f.color,'center')}
+  ctx.globalAlpha=1;
+  if(flash>0){ctx.fillStyle=`rgba(255,255,255,${flash*.45})`;ctx.fillRect(0,0,W,H)}
+  if(toastUntil>now()){
+    const tw=Math.min(W-30,620),th=48,tx=(W-tw)/2,ty=isMobile()?H-218:H-65;
+    roundedRect(ctx,tx,ty,tw,th,10,'rgba(25,30,38,.94)','#798697',3);
+    text(toastMsg, W/2,ty+24,fitText(toastMsg,tw-24,17),'#fff','center');
+  }
+  if(paused&&!modal){
+    ctx.fillStyle='rgba(0,0,0,.18)';ctx.fillRect(0,0,W,H);text(T('pause'),W/2,H/2,42,'#fff','center');
+  }
+  drawModal();
+}
+function loop(t){
+  const dt=Math.min(.05,(t-lastFrame)/1000);lastFrame=t;
+  update(dt);render();requestAnimationFrame(loop);
+}
+
+/* ---------- старт ---------- */
+async function boot(){
+  resize();
+  // Сначала строим интерактивный интерфейс, затем один раз загружаем сохранение.
+  syncBlockHP(true);
+  render();
+  await initSDK();
+  syncBlockHP(true);
+  // Обязательный Game Ready выполняется внутри initSDK после готовности UI.
+  render();
+  requestAnimationFrame(loop);
+}
+boot();
+</script>
+</body>
+</html>
